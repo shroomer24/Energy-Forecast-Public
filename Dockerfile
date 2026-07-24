@@ -11,7 +11,8 @@ WORKDIR /app
 
 # Install Python dependencies first (layer caching)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    find /usr/local/lib -name "tabpfn_client" -type d -exec chmod -R a+w {} +
 
 # Copy source code
 COPY src/ ./src/
