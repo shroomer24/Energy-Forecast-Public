@@ -1,3 +1,15 @@
+---
+title: Energy Demand Forecast
+emoji: ⚡
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Hourly PJM electricity demand forecasting — XGBoost vs SARIMA
+---
+
 # Energy Demand Forecasting Pipeline
 
 **End-to-end ML pipeline for hourly electricity demand forecasting on the PJM Interconnection grid.**
@@ -6,22 +18,37 @@ Built by **Ram Aligave** · Business Analytics BBA · University of North Texas 
 
 ---
 
+## Live Demo
+
+The interactive dashboard is served at the root URL of this Space. It displays a 72-hour ahead
+forecast with 80% prediction intervals, powered by a pre-trained XGBoost model.
+
+> **Note:** The first request after a period of inactivity may take a few seconds while the
+> container initialises and loads the model artifacts.
+
+---
+
 ## Project Summary
 
-This project benchmarks XGBoost against SARIMA for short-term energy demand forecasting using three years (2022–2026) of real hourly demand data from the U.S. Energy Information Administration (EIA) API.  Key results:
+This project benchmarks XGBoost against SARIMA for short-term energy demand forecasting using
+three years (2022–2026) of real hourly demand data from the U.S. Energy Information
+Administration (EIA) API. Key results:
 
 | Model   | MAE (GW) | RMSE (GW) | MAPE   |
 |---------|----------|-----------|--------|
 | XGBoost | **0.576**    | **0.751**     | **1.52%** |
 | SARIMA  | 2.591    | 2.970     | 7.10%  |
 
-XGBoost achieves **4.7× lower MAPE** by leveraging 26 engineered features including lag windows, Fourier time encodings, and a data-center load growth proxy.
+XGBoost achieves **4.7× lower MAPE** by leveraging 26 engineered features including lag windows,
+Fourier time encodings, and a data-center load growth proxy.
 
 ---
 
 ## Why This Matters (2026 Context)
 
-AI data centers are adding unprecedented load to the grid.  PJM — the largest electricity market in North America — is managing the fastest demand growth in 20 years.  Accurate short-term forecasting directly impacts:
+AI data centers are adding unprecedented load to the grid. PJM — the largest electricity market
+in North America — is managing the fastest demand growth in 20 years. Accurate short-term
+forecasting directly impacts:
 
 - **Reserve margin planning** — prevents blackouts during demand spikes
 - **Renewable curtailment** — wind and solar generation scheduling
@@ -48,7 +75,7 @@ features.py            ─── 26 engineered features: lags, Fourier, calendar
       └──▶ retrain.py          ─── Automated retraining · MAPE gate (5% tolerance)
                                         │
                                         ▼
-                               api/main.py          ─── FastAPI · port 8001 · CORS
+                               api/main.py          ─── FastAPI · port 7860 · CORS
                                         │
                                         ▼
                                frontend/index.html  ─── Chart.js dashboard · CI band
@@ -56,7 +83,7 @@ features.py            ─── 26 engineered features: lags, Fourier, calendar
 
 ---
 
-## Quick Start
+## Quick Start (Local)
 
 ### 1. Clone and install
 
@@ -73,11 +100,11 @@ brew install libomp
 sudo ln -s $(brew --prefix libomp)/lib/libomp.dylib /usr/local/lib/libomp.dylib
 ```
 
-### 2. Configure API key
+### 2. Configure API keys
 
 ```bash
 cp .env.example .env
-# Edit .env and set EIA_API_KEY=<your key from 
+# Edit .env — set EIA_API_KEY for live data fetching (optional for inference)
 ```
 
 ### 3. Run the full pipeline
@@ -87,40 +114,17 @@ chmod +x run_all.sh
 ./run_all.sh
 ```
 
-This executes all 7 steps sequentially then starts the API.
-
 ### 4. Open the dashboard
 
-Navigate to [http://localhost:8001](http://localhost:8001)
+Navigate to [http://localhost:7860](http://localhost:7860)
 
 ---
 
-## Individual Steps
+## Docker
 
 ```bash
-# 1. Fetch data
-python -m src.data_pipeline_eia
-
-# 2. Train XGBoost
-python -m src.train_xgboost
-
-# 3. Train SARIMA baseline
-python -m src.train_sarima
-
-# 4. Train prediction intervals
-python -m src.train_intervals
-
-# 5. Walk-forward backtest
-python -m src.backtest
-
-# 6. Generate charts
-python -m src.evaluate
-
-# 7. Start API (port 8001)
-uvicorn api.main:app --host 0.0.0.0 --port 8001 --reload
-
-# Automated retraining (run on schedule)
-python -m src.retrain
+docker build -t energy-forecast .
+docker run -p 7860:7860 --env-file .env energy-forecast
 ```
 
 ---
@@ -138,10 +142,24 @@ python -m src.retrain
 
 **Example request:**
 ```bash
-curl -X POST http://localhost:8001/forecast/intervals \
+curl -X POST https://<your-space>.hf.space/forecast/intervals \
   -H "Content-Type: application/json" \
   -d '{"hours": 72}'
 ```
+
+---
+
+## Environment Variables
+
+Set these as **Space Secrets** in the HF Space settings (Settings → Variables and secrets):
+
+| Variable | Required | Description |
+|---|---|---|
+| `EIA_API_KEY` | Optional | EIA Open Data API key — only needed to retrain on fresh data |
+| `TABPFN_API_KEY` | Optional | TabPFN-3 API key — enables live TabPFN inference |
+
+The Space runs fully without either key: inference uses the pre-trained model artifacts
+committed in `models/`, and temperature data comes from the free Open-Meteo API.
 
 ---
 
@@ -167,21 +185,6 @@ mlflow ui --port 5001
 # Open http://localhost:5001
 ```
 
-Each run records:
-- Hyperparameters
-- MAE / RMSE / MAPE
-- Model artifact
-- Training duration
-
----
-
-## Docker
-
-```bash
-docker build -t energy-forecast .
-docker run -p 8001:8001 --env-file .env energy-forecast
-```
-
 ---
 
 ## Project Structure
@@ -202,11 +205,13 @@ energy-forecast/
 │   └── main.py                # FastAPI inference server
 ├── frontend/
 │   └── index.html             # Chart.js dashboard
-├── data/                      # Generated (gitignored)
-│   ├── demand.csv
+├── models/                    # Pre-trained artifacts (tracked in git)
 │   ├── xgb_model.pkl
 │   ├── interval_models.pkl
-│   └── charts/
+│   ├── demand_seed.csv
+│   ├── shap_importance.png
+│   └── shap_summary.png
+├── data/                      # Generated (gitignored)
 ├── mlruns/                    # MLflow runs (gitignored)
 ├── logs/                      # Retrain logs (gitignored)
 ├── run_all.sh
@@ -220,7 +225,10 @@ energy-forecast/
 
 ## Resume Bullet
 
-> Built an end-to-end hourly electricity demand forecasting pipeline benchmarking SARIMA against XGBoost across 26 engineered features, achieving 1.52% MAPE. Tracked experiments with MLflow and deployed a FastAPI inference endpoint — targeting PJM-style grid load forecasting under data center growth scenarios.
+> Built an end-to-end hourly electricity demand forecasting pipeline benchmarking SARIMA against
+> XGBoost across 26 engineered features, achieving 1.52% MAPE. Tracked experiments with MLflow
+> and deployed a FastAPI inference endpoint — targeting PJM-style grid load forecasting under
+> data center growth scenarios.
 
 ---
 
@@ -237,11 +245,11 @@ energy-forecast/
 
 ## Data Source
 
-U.S. Energy Information Administration (EIA) Open Data API  
-Respondent: PJM Interconnection (largest U.S. electricity market)  
-Type: D (Demand)  
-Frequency: Hourly  
-Period: 2022–2024  
+U.S. Energy Information Administration (EIA) Open Data API
+Respondent: PJM Interconnection (largest U.S. electricity market)
+Type: D (Demand)
+Frequency: Hourly
+Period: 2022–2024
 License: Public domain (U.S. government data)
 
 EIA API registration: [https://www.eia.gov/opendata/](https://www.eia.gov/opendata/)

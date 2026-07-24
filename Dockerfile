@@ -28,7 +28,11 @@ RUN mkdir -p data/charts logs mlruns models
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8001
+# Hugging Face Spaces requires the app to run on port 7860
+EXPOSE 7860
 
-# Default: start inference API
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Non-root user required by Hugging Face Spaces
+RUN useradd -m -u 1000 appuser && chown -R appuser /app
+USER appuser
+
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "7860"]
