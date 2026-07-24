@@ -9,7 +9,6 @@ data/tabpfn_model.pkl
 data/interval_models.pkl
 data/sarima_model.pkl
 data/xgb_predictions.csv
-data/tabpfn_predictions.csv
 data/sarima_predictions.csv
 data/feature_importances.csv
 data/features.csv

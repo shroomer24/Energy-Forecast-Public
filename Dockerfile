@@ -22,6 +22,9 @@ COPY frontend/ ./frontend/
 # Copy pre-trained model artifacts (committed to git via scripts/export_models.py)
 COPY models/ ./models/
 
+# Copy pre-computed prediction data (tabpfn_predictions.csv for CSV fallback)
+COPY data/ ./data/
+
 # Ensure data & logs directories exist
 RUN mkdir -p data/charts logs mlruns models
 
