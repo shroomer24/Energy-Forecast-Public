@@ -3,7 +3,6 @@
 EnergyForecast.json
 
 # ── Generated data (large files, not for git) ─────────────────────────────────
-data/demand.csv
 data/xgb_model.pkl
 data/tabpfn_model.pkl
 data/interval_models.pkl
